@@ -1,0 +1,44 @@
+# ── Datasets (too large for git) ─────────────────────────────────────────────
+archive/
+ASVSPOOF_ROOT/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# ── Training data (personal recordings + datasets) ───────────────────────────
+data/
+
+# ── Regeneratable caches ──────────────────────────────────────────────────────
+cache/
+cache_audio/
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+
+# ── Stray audio test files at repo root ───────────────────────────────────────
+*.flac
+*.mp3
+*.m4a
+
+# ── Node / React Native ───────────────────────────────────────────────────────
+voiceguard-mobile/node_modules/
+voiceguard-mobile/.expo/
+voiceguard-mobile/android/
+voiceguard-mobile/ios/
+mobile/node_modules/
+mobile/.expo/
+mobile/android/
+mobile/ios/
+
+# ── IDE / tooling ─────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+.claude/
+settings.local.json

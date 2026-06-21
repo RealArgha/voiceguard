@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VoiceGuard — Drop a clip</title>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8;
+    --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+    --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    margin: 0; padding: 2rem; background: var(--bg); color: var(--text);
+    min-height: 100vh;
+  }
+  h1 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+  .sub { color: var(--muted); margin-bottom: 1.5rem; }
+
+  .drop {
+    border: 2px dashed var(--border);
+    border-radius: 12px; padding: 3rem 1.5rem;
+    text-align: center; transition: all 0.2s;
+    background: var(--panel); cursor: pointer;
+  }
+  .drop.over { border-color: var(--blue); background: #1e293bcc; }
+  .drop input[type=file] { display: none; }
+  .drop-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+  .drop-hint { color: var(--muted); font-size: 0.9rem; margin-top: 0.5rem; }
+
+  .result {
+    margin-top: 1.5rem; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .result.hidden { display: none; }
+  .row { display: flex; gap: 2rem; align-items: baseline; flex-wrap: wrap; }
+  .score-big { font-size: 3.5rem; font-weight: 800; line-height: 1; }
+  .label { color: var(--muted); font-size: 0.75rem;
+           text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .band-pill {
+    display: inline-block; padding: 0.3rem 0.9rem;
+    border-radius: 999px; font-weight: 600; font-size: 0.9rem;
+  }
+  .band-LOW    { background: #14532d; color: var(--green); }
+  .band-MEDIUM { background: #713f12; color: var(--yellow); }
+  .band-HIGH   { background: #7f1d1d; color: var(--red); }
+
+  .gauge { height: 14px; border-radius: 7px; overflow: hidden;
+           background: var(--bg); margin: 1rem 0; }
+  .gauge-fill { height: 100%; transition: width 0.5s ease; }
+
+  .b-LOW    .score-big { color: var(--green); }
+  .b-MEDIUM .score-big { color: var(--yellow); }
+  .b-HIGH   .score-big { color: var(--red); }
+  .b-LOW    .gauge-fill { background: var(--green); }
+  .b-MEDIUM .gauge-fill { background: var(--yellow); }
+  .b-HIGH   .gauge-fill { background: var(--red); }
+
+  pre { white-space: pre-wrap; word-break: break-word;
+        color: #cbd5e1; margin: 0; font-family: inherit; }
+  .meta-row { display: flex; gap: 2rem; flex-wrap: wrap;
+              margin: 1rem 0; font-size: 0.9rem; }
+  .meta-row div span:first-child { color: var(--muted); display: block;
+                                    font-size: 0.7rem; text-transform: uppercase;
+                                    letter-spacing: 0.05em; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 1.2rem 0; }
+  .spinner {
+    display: inline-block; width: 20px; height: 20px;
+    border: 2px solid var(--border); border-top-color: var(--blue);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    vertical-align: middle; margin-right: 0.5rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { color: var(--red); }
+</style>
+</head>
+<body>
+
+<h1>🛡️ VoiceGuard — Drop a clip</h1>
+<p class="sub">Upload an audio file (wav / mp3 / m4a / flac). The CNN scores it and the risk engine returns a band.</p>
+
+<label class="drop" id="drop">
+  <div class="drop-icon">📎</div>
+  <div><b>Drop a file here</b> or click to browse</div>
+  <div class="drop-hint">Accepts wav, mp3, m4a, flac, ogg · max 25 MB</div>
+  <input type="file" id="file-input"
+         accept=".wav,.mp3,.m4a,.flac,.ogg,.aac,audio/*">
+</label>
+
+<div id="result" class="result hidden">
+  <div id="loading" style="display:none;">
+    <span class="spinner"></span> Analyzing…
+  </div>
+  <div id="content" style="display:none;">
+    <div class="row">
+      <div>
+        <div class="label">Risk score</div>
+        <div class="score-big"><span id="score">--</span><span style="font-size:1.2rem;color:#64748b;">/100</span></div>
+      </div>
+      <div>
+        <div class="label">Band</div>
+        <span class="band-pill" id="band-pill">--</span>
+      </div>
+      <div>
+        <div class="label">Action</div>
+        <div id="action" style="font-size:1.3rem;">--</div>
+      </div>
+    </div>
+    <div class="gauge"><div id="gauge" class="gauge-fill"></div></div>
+
+    <div class="meta-row">
+      <div><span>File</span><span id="filename">—</span></div>
+      <div><span>Duration</span><span id="duration">—</span></div>
+      <div><span>CNN P(fake)</span><span id="cnn">—</span></div>
+    </div>
+
+    <hr>
+    <div class="label">Explanation</div>
+    <pre id="explanation">—</pre>
+
+    <div class="label" style="margin-top:1rem;">Transcript</div>
+    <pre id="transcript">—</pre>
+
+    <div class="label" style="margin-top:1rem;">Suspicious phrases</div>
+    <pre id="keywords">—</pre>
+  </div>
+  <div id="error" class="error" style="display:none;"></div>
+</div>
+
+<script>
+// --------------------------------------------------------------------
+// Drag-drop + file picker → POST to /api/score → render result
+// --------------------------------------------------------------------
+
+const dropEl  = document.getElementById('drop');
+const fileEl  = document.getElementById('file-input');
+const resEl   = document.getElementById('result');
+const loadEl  = document.getElementById('loading');
+const contEl  = document.getElementById('content');
+const errEl   = document.getElementById('error');
+
+// Open file picker on click
+dropEl.addEventListener('click', () => fileEl.click());
+fileEl.addEventListener('change', (e) => {
+  if (e.target.files[0]) upload(e.target.files[0]);
+});
+
+// Drag-and-drop wiring
+['dragenter','dragover'].forEach(ev =>
+  dropEl.addEventListener(ev, (e) => {
+    e.preventDefault(); dropEl.classList.add('over');
+  }));
+['dragleave','drop'].forEach(ev =>
+  dropEl.addEventListener(ev, (e) => {
+    e.preventDefault(); dropEl.classList.remove('over');
+  }));
+dropEl.addEventListener('drop', (e) => {
+  const f = e.dataTransfer.files[0];
+  if (f) upload(f);
+});
+
+async function upload(file) {
+  resEl.classList.remove('hidden');
+  loadEl.style.display = 'block';
+  contEl.style.display = 'none';
+  errEl.style.display  = 'none';
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const r = await fetch('/api/score', { method: 'POST', body: form });
+    if (!r.ok) {
+      const msg = await r.text();
+      throw new Error(`${r.status}: ${msg}`);
+    }
+    render(await r.json());
+  } catch (e) {
+    loadEl.style.display = 'none';
+    errEl.style.display  = 'block';
+    errEl.textContent    = 'Error: ' + e.message;
+  }
+}
+
+function render(r) {
+  loadEl.style.display = 'none';
+  contEl.style.display = 'block';
+
+  document.getElementById('score').textContent       = r.score;
+  document.getElementById('band-pill').textContent   = r.band;
+  document.getElementById('band-pill').className     = 'band-pill band-' + r.band;
+  document.getElementById('gauge').style.width       = r.score + '%';
+  document.getElementById('filename').textContent    = r.filename;
+  document.getElementById('duration').textContent    = r.duration_s + 's';
+  document.getElementById('cnn').textContent         = r.cnn_prob;
+  document.getElementById('explanation').textContent = r.explanation;
+  document.getElementById('transcript').textContent  = r.transcript || '—';
+  document.getElementById('keywords').textContent    =
+      r.keywords.length ? r.keywords.join('\n') : '—';
+
+  const action = {
+    PASS:          '✓ Pass — continue call normally',
+    OTP_CHALLENGE: '⚠ Trigger OTP verification',
+    BLOCK:         '🛑 Block — log evidence',
+  }[r.action] || r.action;
+  document.getElementById('action').textContent = action;
+
+  resEl.classList.remove('b-LOW','b-MEDIUM','b-HIGH');
+  resEl.classList.add('b-' + r.band);
+}
+</script>
+
+</body>
+</html>

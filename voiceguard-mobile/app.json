@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "VoiceGuard",
+    "slug": "voiceguard",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "voiceguard",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#080c14",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#080c14"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.voiceguard.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "VoiceGuard needs microphone access to analyse calls for AI voices in real time."
+      }
+    },
+    "android": {
+      "package": "com.voiceguard.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET"
+      ]
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

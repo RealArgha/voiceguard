@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>VoiceGuard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #080c14;
+    --surface:   #0f1623;
+    --surface2:  #151d2e;
+    --border:    rgba(255,255,255,0.07);
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --accent:    #6366f1;
+    --accent-glow: rgba(99,102,241,0.25);
+
+    --low:       #22c55e;
+    --low-glow:  rgba(34,197,94,0.2);
+    --med:       #f59e0b;
+    --med-glow:  rgba(245,158,11,0.2);
+    --high:      #ef4444;
+    --high-glow: rgba(239,68,68,0.2);
+
+    --ring-size: 220px;
+    --ring-stroke: 12;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── layout ── */
+  .app {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  /* ── header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    box-shadow: 0 0 16px var(--accent-glow);
+    flex-shrink: 0;
+  }
+  .logo-text { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
+  .logo-sub  { font-size: 0.72rem; color: var(--muted); margin-left: auto; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* ── main grid ── */
+  main {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1.25rem;
+    padding: 1.25rem 0;
+    align-items: start;
+  }
+
+  /* ── ring panel ── */
+  .panel-ring {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .ring-wrap {
+    position: relative;
+    width: var(--ring-size);
+    height: var(--ring-size);
+  }
+  .ring-wrap svg {
+    transform: rotate(-90deg);
+    width: 100%; height: 100%;
+  }
+  .ring-bg {
+    fill: none;
+    stroke: var(--surface2);
+    stroke-width: var(--ring-stroke);
+  }
+  .ring-fill {
+    fill: none;
+    stroke: var(--low);
+    stroke-width: var(--ring-stroke);
+    stroke-linecap: round;
+    stroke-dasharray: 0 1000;
+    transition: stroke-dasharray 0.5s cubic-bezier(.4,0,.2,1),
+                stroke 0.4s ease,
+                filter 0.4s ease;
+    filter: drop-shadow(0 0 6px var(--low-glow));
+  }
+  .ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .ring-score {
+    font-size: 3.25rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    transition: color 0.4s ease;
+    color: var(--low);
+  }
+  .ring-max { font-size: 0.78rem; color: var(--muted); }
+  .ring-band {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--low-glow);
+    color: var(--low);
+    transition: background 0.4s, color 0.4s;
+    margin-top: 4px;
+  }
+  .ring-band.pop {
+    animation: band-pop 0.35s cubic-bezier(.4,0,.2,1);
+  }
+  @keyframes band-pop {
+    0%   { transform: scale(0.75); opacity: 0; }
+    60%  { transform: scale(1.12); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+
+  /* ── mic button ── */
+  .mic-btn {
+    position: relative;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: white;
+    font-size: 1.4rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s, transform 0.1s;
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
+  .mic-btn:hover  { background: #4f46e5; transform: scale(1.05); }
+  .mic-btn:active { transform: scale(0.96); }
+  .mic-btn:disabled { background: #1e293b; box-shadow: none; cursor: not-allowed; }
+  .mic-btn.recording { background: var(--high); box-shadow: 0 0 20px var(--high-glow); }
+
+  /* pulse ring around mic button */
+  .mic-btn.recording::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid var(--high);
+    opacity: 0;
+    animation: pulse-ring 1.4s ease-out infinite;
+  }
+  .mic-btn.recording::after {
+    content: '';
+    position: absolute;
+    inset: -14px;
+    border-radius: 50%;
+    border: 2px solid var(--high);
+    opacity: 0;
+    animation: pulse-ring 1.4s ease-out 0.5s infinite;
+  }
+  @keyframes pulse-ring {
+    0%   { transform: scale(0.92); opacity: 0.6; }
+    100% { transform: scale(1.3);  opacity: 0; }
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .status-dot.live { background: var(--high); animation: dot-blink 1.2s ease-in-out infinite; }
+  @keyframes dot-blink {
+    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+
+  /* ── detail panel ── */
+  .panel-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    transition: border-color 0.4s, box-shadow 0.4s;
+  }
+
+  /* action alert card */
+  .card-action {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .action-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    background: rgba(34,197,94,0.12);
+    transition: background 0.4s;
+  }
+  .action-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .action-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--low);
+    transition: color 0.4s;
+  }
+
+  /* metrics row */
+  .metrics {
+    display: flex;
+    gap: 0.75rem;
+  }
+  .metric {
+    flex: 1;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+    text-align: center;
+  }
+  .metric-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+  .metric-value { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-top: 2px; }
+
+  /* mini bar for CNN prob */
+  .mini-bar-wrap {
+    height: 4px;
+    background: var(--bg);
+    border-radius: 2px;
+    margin-top: 5px;
+    overflow: hidden;
+  }
+  .mini-bar {
+    height: 100%;
+    width: 0%;
+    border-radius: 2px;
+    background: var(--low);
+    transition: width 0.4s ease, background 0.4s;
+  }
+
+  /* text cards */
+  .card-label {
+    font-size: 0.67rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    margin-bottom: 0.45rem;
+  }
+  .card-body {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* keywords chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .chip {
+    font-size: 0.72rem;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: rgba(239,68,68,0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(239,68,68,0.25);
+  }
+  .chip-empty { color: var(--muted); font-size: 0.8rem; }
+
+  /* ── footer ── */
+  footer {
+    padding: 0.85rem 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── band state overrides ── */
+  body.band-MEDIUM .ring-score,
+  body.band-MEDIUM .ring-band { color: var(--med); }
+  body.band-MEDIUM .ring-band { background: var(--med-glow); }
+  body.band-MEDIUM .ring-fill { stroke: var(--med); filter: drop-shadow(0 0 6px var(--med-glow)); }
+  body.band-MEDIUM .action-value { color: var(--med); }
+  body.band-MEDIUM .action-icon  { background: rgba(245,158,11,0.12); }
+  body.band-MEDIUM .mini-bar     { background: var(--med); }
+  body.band-MEDIUM .card-action  { border-color: rgba(245,158,11,0.2); }
+
+  body.band-HIGH .ring-score,
+  body.band-HIGH .ring-band { color: var(--high); }
+  body.band-HIGH .ring-band { background: var(--high-glow); }
+  body.band-HIGH .ring-fill { stroke: var(--high); filter: drop-shadow(0 0 8px var(--high-glow)); }
+  body.band-HIGH .action-value { color: var(--high); }
+  body.band-HIGH .action-icon  { background: rgba(239,68,68,0.12); }
+  body.band-HIGH .mini-bar     { background: var(--high); }
+  body.band-HIGH .card-action  { border-color: rgba(239,68,68,0.25); box-shadow: 0 0 20px rgba(239,68,68,0.08); }
+
+  /* ── mobile ── */
+  @media (max-width: 600px) {
+    :root { --ring-size: 190px; }
+
+    .app { padding: 0 0.85rem; }
+
+    main {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      padding-bottom: 5.5rem; /* space for fixed bottom bar */
+    }
+
+    .panel-ring { width: 100%; }
+    .panel-details { width: 100%; }
+
+    .logo-sub { display: none; }
+
+    /* fixed bottom bar on mobile */
+    .bottom-bar {
+      display: flex !important;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 0.85rem 1.25rem calc(0.85rem + env(safe-area-inset-bottom));
+      background: rgba(8,12,20,0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      z-index: 100;
+    }
+    .bottom-bar .status-row { flex: 1; }
+    .panel-ring .status-row,
+    .panel-ring .mic-btn { display: none; } /* use bottom bar on mobile */
+  }
+
+  /* hide bottom-bar on desktop */
+  .bottom-bar { display: none; }
+
+  @media (min-width: 601px) {
+    .bottom-bar { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- header -->
+  <header>
+    <div class="logo-icon">🛡️</div>
+    <span class="logo-text">VoiceGuard</span>
+    <span class="logo-sub">Live Risk Monitor</span>
+  </header>
+
+  <!-- main -->
+  <main>
+
+    <!-- left: ring + mic -->
+    <div class="panel-ring">
+      <div class="ring-wrap">
+        <svg viewBox="0 0 220 220">
+          <circle class="ring-bg"   cx="110" cy="110" r="96"/>
+          <circle class="ring-fill" id="ring" cx="110" cy="110" r="96"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-score" id="score">--</div>
+          <div class="ring-max">/100</div>
+          <div class="ring-band"  id="band">IDLE</div>
+        </div>
+      </div>
+
+      <!-- desktop mic controls (hidden on mobile) -->
+      <div class="status-row">
+        <div class="status-dot" id="dot"></div>
+        <span id="status">idle</span>
+      </div>
+      <button class="mic-btn" id="start" title="Start monitoring">🎙️</button>
+    </div>
+
+    <!-- right: details -->
+    <div class="panel-details">
+
+      <!-- action card -->
+      <div class="card card-action" id="card-action">
+        <div class="action-icon" id="action-icon">✅</div>
+        <div>
+          <div class="action-label">Recommended action</div>
+          <div class="action-value" id="action">Waiting…</div>
+        </div>
+      </div>
+
+      <!-- metrics -->
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">CNN prob</div>
+          <div class="metric-value" id="cnn-val">—</div>
+          <div class="mini-bar-wrap"><div class="mini-bar" id="cnn-bar"></div></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Risk score</div>
+          <div class="metric-value" id="score2">—</div>
+          <div class="mini-bar-wrap"><div class="mini-bar" id="score-bar"></div></div>
+        </div>
+      </div>
+
+      <!-- explanation -->
+      <div class="card">
+        <div class="card-label">Analysis</div>
+        <div class="card-body" id="explanation">Start monitoring to analyse voice…</div>
+      </div>
+
+      <!-- transcript -->
+      <div class="card">
+        <div class="card-label">Live transcript</div>
+        <div class="card-body" id="transcript">—</div>
+        <div class="card-label" style="margin-top:0.75rem;">Flagged phrases</div>
+        <div id="keywords-wrap"><span class="chip-empty">none</span></div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>VoiceGuard · real-time AI voice detection</footer>
+</div>
+
+<!-- mobile bottom bar -->
+<div class="bottom-bar">
+  <div class="status-row">
+    <div class="status-dot" id="dot-m"></div>
+    <span id="status-m">idle</span>
+  </div>
+  <button class="mic-btn" id="start-m" title="Start monitoring">🎙️</button>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────
+//  VoiceGuard client  ·  mic → 16 kHz → WebSocket
+// ─────────────────────────────────────────────────
+const TARGET_SR      = 16000;
+const FRAME_SECONDS  = 1;
+
+let ws, audioCtx, source, processor, stream;
+let recording = false;
+let currentScore = 0;
+let scoreRafId = null;
+
+function animateScore(target) {
+  if (scoreRafId) cancelAnimationFrame(scoreRafId);
+  const start     = currentScore;
+  const delta     = target - start;
+  const duration  = 400;
+  const startTime = performance.now();
+
+  function step(now) {
+    const t = Math.min((now - startTime) / duration, 1);
+    // ease-out cubic
+    const ease = 1 - Math.pow(1 - t, 3);
+    const val  = Math.round(start + delta * ease);
+    document.getElementById("score").textContent  = val;
+    document.getElementById("score2").textContent = val;
+    if (t < 1) {
+      scoreRafId = requestAnimationFrame(step);
+    } else {
+      currentScore = target;
+      scoreRafId   = null;
+    }
+  }
+  scoreRafId = requestAnimationFrame(step);
+}
+
+// Bind both desktop and mobile buttons to the same toggle
+const startBtnD = document.getElementById("start");
+const startBtnM = document.getElementById("start-m");
+startBtnD.onclick = toggle;
+startBtnM.onclick = toggle;
+
+function setStatus(msg, live) {
+  document.getElementById("status").textContent   = msg;
+  document.getElementById("status-m").textContent = msg;
+  const dots = [document.getElementById("dot"), document.getElementById("dot-m")];
+  dots.forEach(d => { if (d) d.className = "status-dot" + (live ? " live" : ""); });
+}
+
+function setMicState(rec) {
+  recording = rec;
+  [startBtnD, startBtnM].forEach(b => {
+    b.textContent = rec ? "⏹" : "🎙️";
+    b.className   = "mic-btn" + (rec ? " recording" : "");
+  });
+}
+
+async function toggle() {
+  if (recording) { stopAll(); } else { await startAll(); }
+}
+
+async function startAll() {
+  setStatus("requesting mic…", false);
+  try {
+    stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new AudioContext();
+    source   = audioCtx.createMediaStreamSource(stream);
+    processor = audioCtx.createScriptProcessor(4096, 1, 1);
+    source.connect(processor);
+    processor.connect(audioCtx.destination);
+
+    const ratio       = audioCtx.sampleRate / TARGET_SR;
+    const targetChunk = TARGET_SR * FRAME_SECONDS;
+    let outBuffer     = new Float32Array(0);
+
+    ws = new WebSocket(`ws://${location.host}/ws/stream`);
+    ws.binaryType = "arraybuffer";
+
+    ws.onopen = () => {
+      setStatus("● recording", true);
+      setMicState(true);
+      ws.send(JSON.stringify({ type: "init", metadata: { unknown_number: false } }));
+    };
+
+    ws.onmessage = e => render(JSON.parse(e.data));
+    ws.onclose   = ()  => { setStatus("disconnected", false); setMicState(false); };
+    ws.onerror   = ()  => { setStatus("connection error", false); setMicState(false); };
+
+    processor.onaudioprocess = e => {
+      const input  = e.inputBuffer.getChannelData(0);
+      const downLen = Math.floor(input.length / ratio);
+      const down    = new Float32Array(downLen);
+      for (let i = 0; i < downLen; i++) down[i] = input[Math.floor(i * ratio)];
+
+      const next = new Float32Array(outBuffer.length + down.length);
+      next.set(outBuffer); next.set(down, outBuffer.length);
+      outBuffer = next;
+
+      while (outBuffer.length >= targetChunk && ws.readyState === 1) {
+        const chunk = outBuffer.subarray(0, targetChunk);
+        ws.send(chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength));
+        outBuffer = outBuffer.slice(targetChunk);
+      }
+    };
+  } catch (err) {
+    setStatus("mic denied", false);
+  }
+}
+
+function stopAll() {
+  if (ws)        ws.close();
+  if (processor) processor.disconnect();
+  if (source)    source.disconnect();
+  if (audioCtx)  audioCtx.close();
+  if (stream)    stream.getTracks().forEach(t => t.stop());
+  setStatus("stopped", false);
+  setMicState(false);
+}
+
+// ── ring animation ──────────────────────────────
+const CIRCUMFERENCE = 2 * Math.PI * 96;  // r=96
+
+function updateRing(score, band) {
+  const arc = (score / 100) * CIRCUMFERENCE;
+  document.getElementById("ring").style.strokeDasharray = `${arc} ${CIRCUMFERENCE}`;
+}
+
+// ── action metadata ─────────────────────────────
+const BAND_META = {
+  LOW:    { icon: "✅", emoji: "🟢" },
+  MEDIUM: { icon: "⚠️", emoji: "🟡" },
+  HIGH:   { icon: "🚫", emoji: "🔴" },
+};
+
+function render(r) {
+  const band   = r.band || "LOW";
+  const score  = r.score ?? 0;
+  const cnn    = r.cnn_prob ?? 0;
+  const meta   = BAND_META[band] || BAND_META.LOW;
+
+  // ring + score (animated)
+  animateScore(score);
+  const bandEl = document.getElementById("band");
+  if (bandEl.textContent !== band) {
+    bandEl.textContent = band;
+    bandEl.classList.remove("pop");
+    void bandEl.offsetWidth; // force reflow to restart animation
+    bandEl.classList.add("pop");
+  }
+  updateRing(score, band);
+
+  // action
+  document.getElementById("action-icon").textContent = meta.icon;
+  document.getElementById("action").textContent = r.action || "—";
+
+  // metrics
+  document.getElementById("cnn-val").textContent = (cnn * 100).toFixed(1) + "%";
+  document.getElementById("cnn-bar").style.width = (cnn * 100) + "%";
+  document.getElementById("score-bar").style.width = score + "%";
+
+  // explanation
+  document.getElementById("explanation").textContent = r.explanation || "—";
+
+  // transcript
+  document.getElementById("transcript").textContent = r.transcript || "—";
+
+  // keywords
+  const wrap = document.getElementById("keywords-wrap");
+  if (r.keywords && r.keywords.length) {
+    wrap.innerHTML = r.keywords.map(k =>
+      `<span class="chip">${escHtml(k)}</span>`
+    ).join(" ");
+    wrap.className = "chips";
+  } else {
+    wrap.innerHTML = '<span class="chip-empty">none</span>';
+    wrap.className = "";
+  }
+
+  // body class for color cascade
+  document.body.className = "band-" + band;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+</script>
+
+</body>
+</html>

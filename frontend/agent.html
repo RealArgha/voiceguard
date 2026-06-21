@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VoiceGuard — Agent Console</title>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8;
+    --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    margin: 0; background: var(--bg); color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    padding: 1rem 2rem; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  header h1 { margin: 0; font-size: 1.25rem; }
+  .live {
+    display: inline-block; width: 8px; height: 8px;
+    background: var(--green); border-radius: 50%;
+    margin-right: 6px; animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+
+  .layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    padding: 1rem 2rem;
+  }
+  .card {
+    background: var(--panel); border-radius: 12px;
+    padding: 1.5rem; border: 1px solid var(--border);
+  }
+  .label { color: var(--muted); font-size: 0.75rem;
+           text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .score-big { font-size: 4rem; font-weight: 800; line-height: 1; }
+  .band-pill {
+    display: inline-block; padding: 0.25rem 0.75rem;
+    border-radius: 999px; font-weight: 600; font-size: 0.85rem;
+  }
+  .band-LOW    { background: #14532d; color: var(--green); }
+  .band-MEDIUM { background: #713f12; color: var(--yellow); }
+  .band-HIGH   { background: #7f1d1d; color: var(--red); }
+
+  .gauge {
+    height: 12px; border-radius: 6px; overflow: hidden;
+    background: var(--bg); margin-top: 1rem;
+  }
+  .gauge-fill {
+    height: 100%; width: 0%;
+    transition: width 0.4s ease, background 0.4s;
+    background: var(--green);
+  }
+  .b-LOW    .gauge-fill { background: var(--green); }
+  .b-MEDIUM .gauge-fill { background: var(--yellow); }
+  .b-HIGH   .gauge-fill { background: var(--red); }
+
+  .action-banner {
+    margin-top: 1rem; padding: 1rem; border-radius: 8px;
+    text-align: center; font-weight: 600; font-size: 1.1rem;
+  }
+  .b-LOW    .action-banner { background: #14532d33; color: var(--green);
+                             border: 1px solid var(--green); }
+  .b-MEDIUM .action-banner { background: #713f1233; color: var(--yellow);
+                             border: 1px solid var(--yellow); }
+  .b-HIGH   .action-banner { background: #7f1d1d33; color: var(--red);
+                             border: 1px solid var(--red); }
+
+  pre { white-space: pre-wrap; word-break: break-word;
+        color: #cbd5e1; margin: 0.5rem 0 0; font-family: inherit; }
+  .meta { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .meta div { font-size: 0.9rem; }
+  .empty { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛡️ VoiceGuard <span style="color:var(--muted);font-weight:400;">— Agent Console</span></h1>
+  <div><span class="live"></span><span id="conn">connecting…</span></div>
+</header>
+
+<div id="root" class="layout">
+  <!-- LEFT: live risk -->
+  <div class="card" id="risk-card">
+    <div class="label">Active call risk</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:0.5rem;">
+      <div class="score-big"><span id="score">—</span><span style="font-size:1.5rem;color:var(--muted);">/100</span></div>
+      <span class="band-pill" id="band-pill">IDLE</span>
+    </div>
+    <div class="gauge"><div id="gauge" class="gauge-fill"></div></div>
+    <div class="action-banner" id="action">Awaiting call…</div>
+    <div class="meta">
+      <div><span class="label">Caller</span><br><span id="from">—</span></div>
+      <div><span class="label">Call ID</span><br><span id="sid">—</span></div>
+      <div><span class="label">CNN P(fake)</span><br><span id="cnn">—</span></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: explanation + transcript -->
+  <div class="card">
+    <div class="label">Why this call was flagged</div>
+    <pre id="explanation" class="empty">No active call.</pre>
+    <hr style="border-color:var(--border);margin:1.5rem 0;">
+    <div class="label">Live transcript</div>
+    <pre id="transcript" class="empty">—</pre>
+    <div class="label" style="margin-top:1rem;">Suspicious phrases</div>
+    <pre id="keywords" class="empty">—</pre>
+  </div>
+</div>
+
+<script>
+// ----------------------------------------------------------------------
+// Agent dashboard — subscribes to backend broadcast
+// ----------------------------------------------------------------------
+
+const ws = new WebSocket(`ws://${location.host}/ws/dashboard`);
+const conn = document.getElementById("conn");
+
+ws.onopen  = () => conn.textContent = "live";
+ws.onclose = () => conn.textContent = "disconnected";
+ws.onerror = () => conn.textContent = "error";
+
+ws.onmessage = (e) => {
+  const r = JSON.parse(e.data);
+
+  document.getElementById("score").textContent = r.score;
+  document.getElementById("band-pill").textContent = r.band;
+  document.getElementById("band-pill").className = "band-pill band-" + r.band;
+  document.getElementById("gauge").style.width = `${r.score}%`;
+
+  const action = {
+    "PASS":          "✓ Pass — continue call normally",
+    "OTP_CHALLENGE": "⚠ Trigger OTP — request verification code",
+    "BLOCK":         "🛑 Block — terminate call, log evidence",
+  }[r.action] || r.action;
+  document.getElementById("action").textContent = action;
+
+  document.getElementById("from").textContent  = r.from || "—";
+  document.getElementById("sid").textContent   =
+      r.call_sid ? r.call_sid.slice(0, 12) + "…" : "—";
+  document.getElementById("cnn").textContent   = r.cnn_prob;
+
+  setText("explanation", r.explanation);
+  setText("transcript",  r.transcript || "—");
+  setText("keywords",    r.keywords.length ? r.keywords.join("\n") : "—");
+
+  document.getElementById("risk-card").classList.remove(
+      "b-LOW","b-MEDIUM","b-HIGH");
+  document.getElementById("risk-card").classList.add("b-" + r.band);
+};
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  el.textContent = val;
+  el.classList.toggle("empty", !val || val === "—");
+}
+
+// Keep connection alive — send a ping every 25s
+setInterval(() => { if (ws.readyState === 1) ws.send("ping"); }, 25000);
+</script>
+
+</body>
+</html>
