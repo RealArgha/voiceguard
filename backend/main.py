@@ -49,7 +49,6 @@ load_dotenv()
 
 from .model        import load_model, predict_synthetic_prob
 from .spectrogram  import audio_to_logmel, SAMPLE_RATE
-from .transcribe   import transcribe, keyword_flags
 from .fusion       import fuse
 from .explainer    import explain
 from .database     import (
@@ -257,22 +256,19 @@ async def stream(ws: WebSocket):
                 continue
 
             audio_window = np.asarray(buf, dtype=np.float32)
-            cnn_prob_raw, transcript = await _analyze(audio_window)
+            cnn_prob_raw = await _analyze(audio_window)
 
             cnn_history.append(cnn_prob_raw)
             cnn_prob = float(np.mean(cnn_history))
 
-            hits = keyword_flags(transcript)
-            risk = fuse(cnn_prob, hits, metadata)
-            note = explain(risk, transcript)
+            risk = fuse(cnn_prob, metadata)
+            note = explain(risk)
 
             event_payload = {
                 "score":       risk.score,
                 "band":        risk.band,
                 "action":      risk.action,
                 "cnn_prob":    risk.cnn_prob,
-                "keywords":    risk.keyword_hits,
-                "transcript":  transcript,
                 "explanation": note,
                 "session_id":  session_id,
             }
@@ -280,7 +276,7 @@ async def stream(ws: WebSocket):
             await ws.send_json(event_payload)
 
             # Persist to DB + publish to Redis (fire-and-forget style)
-            asyncio.create_task(_persist_event(session_id, risk, transcript))
+            asyncio.create_task(_persist_event(session_id, risk))
             await publish_event(session_id, event_payload)
 
     except WebSocketDisconnect:
@@ -291,11 +287,9 @@ async def stream(ws: WebSocket):
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-async def _analyze(audio: np.ndarray) -> tuple[float, str]:
-    loop     = asyncio.get_running_loop()
-    cnn_task = loop.run_in_executor(None, _run_cnn,   audio)
-    stt_task = loop.run_in_executor(None, transcribe, audio)
-    return await asyncio.gather(cnn_task, stt_task)
+async def _analyze(audio: np.ndarray) -> float:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, _run_cnn, audio)
 
 
 def _run_cnn(audio: np.ndarray) -> float:
@@ -303,7 +297,7 @@ def _run_cnn(audio: np.ndarray) -> float:
     return predict_synthetic_prob(MODEL, mel)
 
 
-async def _persist_event(session_id: str, risk, transcript: str) -> None:
+async def _persist_event(session_id: str, risk) -> None:
     async with get_db() as db:
         if db is None:
             return
@@ -314,8 +308,6 @@ async def _persist_event(session_id: str, risk, transcript: str) -> None:
             band       = risk.band,
             action     = risk.action,
             cnn_prob   = risk.cnn_prob,
-            transcript = transcript or None,
-            keywords   = risk.keyword_hits or None,
         ))
 
 
