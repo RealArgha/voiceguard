@@ -8,7 +8,7 @@ Keyword/transcript signals removed — CNN-only detection runs with no delay.
 from dataclasses import dataclass
 
 
-W_CNN      = 0.90
+W_CNN      = 0.60   # calibrated: real voice max CNN ~0.565 → score ~33.9 → LOW
 W_METADATA = 0.10
 
 CNN_THRESHOLD = 0.56
