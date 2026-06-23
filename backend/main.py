@@ -220,7 +220,7 @@ async def stream(ws: WebSocket):
 
     session_id = new_session_id()
     buf:         deque[float] = deque(maxlen=WINDOW_SECONDS * SAMPLE_RATE)
-    cnn_history: deque[float] = deque(maxlen=3)
+    cnn_history: deque[float] = deque(maxlen=2)
     metadata:    dict         = {}
 
     # Create session row in DB
