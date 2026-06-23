@@ -49,6 +49,7 @@ load_dotenv()
 
 from .model        import load_model, predict_synthetic_prob
 from .spectrogram  import audio_to_logmel, SAMPLE_RATE
+from .transcribe   import transcribe, keyword_flags
 from .fusion       import fuse
 from .explainer    import explain
 from .database     import (
@@ -256,12 +257,13 @@ async def stream(ws: WebSocket):
                 continue
 
             audio_window = np.asarray(buf, dtype=np.float32)
-            cnn_prob_raw = await _analyze(audio_window)
+            cnn_prob_raw, transcript = await _analyze(audio_window)
 
             cnn_history.append(cnn_prob_raw)
             cnn_prob = float(np.mean(cnn_history))
 
-            risk = fuse(cnn_prob, metadata)
+            hits = keyword_flags(transcript)
+            risk = fuse(cnn_prob, hits, metadata)
             note = explain(risk)
 
             event_payload = {
@@ -269,6 +271,7 @@ async def stream(ws: WebSocket):
                 "band":        risk.band,
                 "action":      risk.action,
                 "cnn_prob":    risk.cnn_prob,
+                "keywords":    risk.keyword_hits,
                 "explanation": note,
                 "session_id":  session_id,
             }
@@ -287,9 +290,11 @@ async def stream(ws: WebSocket):
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-async def _analyze(audio: np.ndarray) -> float:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _run_cnn, audio)
+async def _analyze(audio: np.ndarray) -> tuple[float, str]:
+    loop     = asyncio.get_running_loop()
+    cnn_task = loop.run_in_executor(None, _run_cnn,   audio)
+    stt_task = loop.run_in_executor(None, transcribe, audio)
+    return await asyncio.gather(cnn_task, stt_task)
 
 
 def _run_cnn(audio: np.ndarray) -> float:
@@ -308,6 +313,7 @@ async def _persist_event(session_id: str, risk) -> None:
             band       = risk.band,
             action     = risk.action,
             cnn_prob   = risk.cnn_prob,
+            keywords   = risk.keyword_hits or None,
         ))
 
 

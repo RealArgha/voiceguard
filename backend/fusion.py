@@ -8,7 +8,8 @@ Keyword/transcript signals removed — CNN-only detection runs with no delay.
 from dataclasses import dataclass
 
 
-W_CNN      = 0.60   # calibrated: real voice max CNN ~0.565 → score ~33.9 → LOW
+W_CNN      = 0.60
+W_KEYWORD  = 0.30
 W_METADATA = 0.10
 
 CNN_THRESHOLD = 0.56
@@ -16,18 +17,23 @@ CNN_THRESHOLD = 0.56
 
 @dataclass
 class RiskResult:
-    score: float          # 0-100
+    score: float
     band:  str            # "LOW" | "MEDIUM" | "HIGH"
     action: str           # "PASS" | "OTP_CHALLENGE" | "BLOCK"
     cnn_prob: float
+    keyword_hits: list[str]
     metadata: dict
 
 
-def fuse(cnn_prob: float, metadata: dict | None = None) -> RiskResult:
+def fuse(cnn_prob: float,
+         keyword_hits: list[str] | None = None,
+         metadata: dict | None = None) -> RiskResult:
 
-    metadata = metadata or {}
+    keyword_hits = keyword_hits or []
+    metadata     = metadata or {}
 
-    cnn_component = cnn_prob * 100.0
+    cnn_component     = cnn_prob * 100.0
+    keyword_component = min(len(keyword_hits) / 3.0, 1.0) * 100.0
 
     md_component = 0.0
     if metadata.get("unknown_number"):  md_component += 50
@@ -35,7 +41,9 @@ def fuse(cnn_prob: float, metadata: dict | None = None) -> RiskResult:
     if metadata.get("foreign_country"): md_component += 20
     md_component = min(md_component, 100.0)
 
-    score = W_CNN * cnn_component + W_METADATA * md_component
+    score = (W_CNN * cnn_component
+           + W_KEYWORD * keyword_component
+           + W_METADATA * md_component)
 
     if   score <= 34: band, action = "LOW",    "PASS"
     elif score <= 45: band, action = "MEDIUM", "OTP_CHALLENGE"
@@ -46,5 +54,6 @@ def fuse(cnn_prob: float, metadata: dict | None = None) -> RiskResult:
         band=band,
         action=action,
         cnn_prob=round(cnn_prob, 3),
+        keyword_hits=keyword_hits,
         metadata=metadata,
     )

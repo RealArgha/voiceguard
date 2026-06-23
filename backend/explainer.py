@@ -30,6 +30,7 @@ Do not invent details. Address the agent who is on the call.
 
 Risk score: {risk.score}/100  (band: {risk.band})
 CNN synthetic-voice probability: {risk.cnn_prob}
+Suspicious phrases detected: {risk.keyword_hits or 'none'}
 Call metadata flags: {risk.metadata or 'none'}
 """
 
@@ -47,6 +48,9 @@ def _fallback_explain(risk: RiskResult) -> str:
         parts.append(
             f"The voice analysis model believes this is synthetic audio "
             f"(P={risk.cnn_prob:.2f}).")
+    if risk.keyword_hits:
+        parts.append(
+            f"Suspicious phrases detected: {', '.join(risk.keyword_hits[:3])}.")
     if risk.metadata:
         flags = [k for k, v in risk.metadata.items() if v]
         if flags:

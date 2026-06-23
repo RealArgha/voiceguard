@@ -299,6 +299,15 @@
   }
 
 
+  /* keyword chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .chip {
+    font-size: 0.72rem; padding: 3px 9px; border-radius: 20px;
+    background: rgba(239,68,68,0.15); color: #fca5a5;
+    border: 1px solid rgba(239,68,68,0.25);
+  }
+  .chip-empty { color: var(--muted); font-size: 0.8rem; }
+
   /* ── footer ── */
   footer {
     padding: 0.85rem 0;
@@ -439,6 +448,8 @@
       <div class="card">
         <div class="card-label">Analysis</div>
         <div class="card-body" id="explanation">Start monitoring to analyse voice…</div>
+        <div class="card-label" style="margin-top:0.75rem;">Flagged phrases</div>
+        <div id="keywords-wrap"><span class="chip-empty">none</span></div>
       </div>
 
 
@@ -619,6 +630,18 @@ function render(r) {
 
   // explanation
   document.getElementById("explanation").textContent = r.explanation || "—";
+
+  // keywords
+  const wrap = document.getElementById("keywords-wrap");
+  if (r.keywords && r.keywords.length) {
+    wrap.innerHTML = r.keywords.map(k =>
+      `<span class="chip">${k.replace(/</g,"&lt;")}</span>`
+    ).join(" ");
+    wrap.className = "chips";
+  } else {
+    wrap.innerHTML = '<span class="chip-empty">none</span>';
+    wrap.className = "";
+  }
 
   // body class for color cascade
   document.body.className = "band-" + band;
