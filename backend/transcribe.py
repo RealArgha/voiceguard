@@ -15,12 +15,21 @@ import torch
 
 USE_WHISPER = os.getenv("USE_WHISPER", "1") == "1"
 
-# Seeds Whisper's decoder with Indian English context so it maps
-# Indian phonemes (retroflex consonants, vowel shifts) correctly.
-# Keep it short — Whisper uses this as prior text, not a system prompt.
+# Whisper treats initial_prompt as prior transcript text — words here get
+# higher decoder probability, which is how we prime rare/accented vocabulary.
+# Written as realistic fraud-call dialogue so every suspicious phrase and
+# Indian banking term appears verbatim in natural sentence context.
 _INITIAL_PROMPT = (
-    "This is a phone call in Indian English. "
-    "The speaker may discuss banking, OTP, account transfers, or personal details."
+    "Calling from the bank fraud prevention department. "
+    "Your account has been locked out due to suspicious activity. "
+    "To verify your identity, please share the one-time password, the OTP, "
+    "sent to your registered mobile number. "
+    "Do not tell anyone this verification code, not even the bank. "
+    "We need to urgently transfer your funds to a secure account. "
+    "Please reset your PIN immediately and provide your Aadhaar number, "
+    "PAN card details, debit card number, CVV, and IFSC code. "
+    "This is an emergency. Wire the funds now or your account will be blocked. "
+    "Do not tell the bank about this call."
 )
 
 # Phrases fraudsters typically use on social-engineering calls.
