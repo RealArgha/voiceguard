@@ -38,7 +38,7 @@ def fuse(cnn_prob: float, metadata: dict | None = None) -> RiskResult:
     score = W_CNN * cnn_component + W_METADATA * md_component
 
     if   score <= 34: band, action = "LOW",    "PASS"
-    elif score <= 70: band, action = "MEDIUM", "OTP_CHALLENGE"
+    elif score <= 45: band, action = "MEDIUM", "OTP_CHALLENGE"
     else:             band, action = "HIGH",   "BLOCK"
 
     return RiskResult(
