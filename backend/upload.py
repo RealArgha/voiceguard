@@ -22,7 +22,6 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 
 from .spectrogram import audio_to_logmel, SAMPLE_RATE
-from .transcribe  import transcribe, keyword_flags
 from .fusion      import fuse
 from .explainer   import explain
 from .model       import predict_synthetic_prob
@@ -85,20 +84,15 @@ async def score_file(file: UploadFile = File(...)):
     mel = audio_to_logmel(audio).to(DEVICE)
     cnn_prob = predict_synthetic_prob(MODEL, mel)
 
-    transcript = transcribe(audio)
-    hits = keyword_flags(transcript)
-
-    risk = fuse(cnn_prob, hits, metadata={})
-    note = explain(risk, transcript)
+    risk = fuse(cnn_prob, metadata={})
+    note = explain(risk)
 
     return {
-        "filename":    file.filename,
-        "duration_s":  round(duration_sec, 2),
-        "cnn_prob":    risk.cnn_prob,
-        "score":       risk.score,
-        "band":        risk.band,
-        "action":      risk.action,
-        "keywords":    risk.keyword_hits,
-        "transcript":  transcript,
+        "filename":   file.filename,
+        "duration_s": round(duration_sec, 2),
+        "cnn_prob":   risk.cnn_prob,
+        "score":      risk.score,
+        "band":       risk.band,
+        "action":     risk.action,
         "explanation": note,
     }
