@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Band, bandColor, colors } from '../constants/theme';
@@ -16,8 +16,9 @@ interface Props {
 }
 
 export default function RingGauge({ score, band }: Props) {
-  const progress  = useRef(new Animated.Value(0)).current;
-  const displayed = useRef(new Animated.Value(0)).current;
+  const progress     = useRef(new Animated.Value(0)).current;
+  const displayed    = useRef(new Animated.Value(0)).current;
+  const [displayScore, setDisplayScore] = useState(0);
 
   useEffect(() => {
     Animated.timing(progress, {
@@ -32,6 +33,11 @@ export default function RingGauge({ score, band }: Props) {
       useNativeDriver: false,
     }).start();
   }, [score]);
+
+  useEffect(() => {
+    const id = displayed.addListener(({ value }) => setDisplayScore(Math.round(value)));
+    return () => displayed.removeListener(id);
+  }, []);
 
   const strokeDashoffset = progress.interpolate({
     inputRange:  [0, 1],
@@ -66,18 +72,7 @@ export default function RingGauge({ score, band }: Props) {
 
       {/* centre text */}
       <View style={styles.center} pointerEvents="none">
-        <Animated.Text style={[styles.score, { color }]}>
-          {displayed.interpolate({
-            inputRange:  [0, 100],
-            outputRange: ['0', '100'],
-            extrapolate: 'clamp',
-          }).__getValue
-            ? displayed.interpolate({
-                inputRange: [0, 100],
-                outputRange: ['0', '100'],
-              })
-            : score}
-        </Animated.Text>
+        <Text style={[styles.score, { color }]}>{displayScore}</Text>
         <Text style={styles.max}>/100</Text>
         <View style={[styles.badge, { backgroundColor: bandColor(band) + '33' }]}>
           <Text style={[styles.badgeText, { color }]}>{band}</Text>

@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, Animated,
+  StyleSheet, SafeAreaView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import RingGauge from '../components/RingGauge';
@@ -16,7 +16,6 @@ export default function MonitorScreen() {
   const score      = event?.score ?? 0;
   const action     = event?.action ?? '—';
   const cnn        = event ? (event.cnn_prob * 100).toFixed(1) + '%' : '—';
-  const transcript = event?.transcript || '—';
   const keywords   = event?.keywords ?? [];
   const explanation= event?.explanation || 'Start monitoring to analyse voice…';
 
@@ -80,23 +79,19 @@ export default function MonitorScreen() {
           <Text style={styles.body}>{explanation}</Text>
         </View>
 
-        {/* transcript */}
-        <View style={styles.card}>
-          <Text style={styles.label}>Live transcript</Text>
-          <Text style={styles.body}>{transcript}</Text>
-          {keywords.length > 0 && (
-            <>
-              <Text style={[styles.label, { marginTop: 12 }]}>Flagged phrases</Text>
-              <View style={styles.chips}>
-                {keywords.map((k) => (
-                  <View key={k} style={styles.chip}>
-                    <Text style={styles.chipText}>{k}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-        </View>
+        {/* flagged phrases — only shown when keywords hit */}
+        {keywords.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.label}>Flagged phrases</Text>
+            <View style={styles.chips}>
+              {keywords.map((k) => (
+                <View key={k} style={styles.chip}>
+                  <Text style={styles.chipText}>{k}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
       </ScrollView>
     </SafeAreaView>

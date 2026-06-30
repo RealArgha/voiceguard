@@ -75,9 +75,7 @@ export function useVoiceStream() {
     };
 
     socket.onerror = () => setStatus('error');
-    socket.onclose = () => {
-      if (status === 'recording') setStatus('stopped');
-    };
+    socket.onclose = () => setStatus((prev) => prev === 'recording' ? 'stopped' : prev);
 
     // ── audio stream ──────────────────────────────────────────────
     LiveAudioStream.init({
