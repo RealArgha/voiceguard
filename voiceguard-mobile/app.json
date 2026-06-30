@@ -30,6 +30,15 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "c5a41579-30dd-4550-b3a1-512127450f4d"
+      }
+    },
+    "owner": "realargha"
   }
 }
