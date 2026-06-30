@@ -18,6 +18,7 @@
         "NSMicrophoneUsageDescription": "VoiceGuard needs microphone access to analyse calls for AI voices in real time."
       }
     },
+    "newArchEnabled": false,
     "android": {
       "package": "com.voiceguard.app",
       "adaptiveIcon": {
