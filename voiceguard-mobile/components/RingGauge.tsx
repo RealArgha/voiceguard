@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, View, Text, StyleSheet } from 'react-native';
+import { Animated, View, Text, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Band, bandColor, colors } from '../constants/theme';
 
-const SIZE   = 220;
-const RADIUS = 90;
-const STROKE = 12;
+const { width: SCREEN_W } = Dimensions.get('window');
+
+// Pixel 8: 412 dp wide — ring takes 60% of width, capped at 260
+const SIZE   = Math.min(Math.round(SCREEN_W * 0.60), 260);
+const RADIUS = Math.round(SIZE * 0.41);
+const STROKE = Math.round(SIZE * 0.052);
 const CIRC   = 2 * Math.PI * RADIUS;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -44,19 +47,20 @@ export default function RingGauge({ score, band }: Props) {
     outputRange: [CIRC, 0],
   });
 
-  const color = bandColor(band);
+  const color     = bandColor(band);
+  const scoreFontSize = Math.round(SIZE * 0.22);
+  const maxFontSize   = Math.round(SIZE * 0.058);
+  const badgeFontSize = Math.round(SIZE * 0.048);
 
   return (
-    <View style={styles.wrap}>
-      <Svg width={SIZE} height={SIZE} style={styles.svg}>
-        {/* background track */}
+    <View style={{ width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={SIZE} height={SIZE} style={StyleSheet.absoluteFill}>
         <Circle
           cx={SIZE / 2} cy={SIZE / 2} r={RADIUS}
           fill="none"
           stroke={colors.surface2}
           strokeWidth={STROKE}
         />
-        {/* progress arc — rotated so it starts at 12 o'clock */}
         <AnimatedCircle
           cx={SIZE / 2} cy={SIZE / 2} r={RADIUS}
           fill="none"
@@ -70,51 +74,19 @@ export default function RingGauge({ score, band }: Props) {
         />
       </Svg>
 
-      {/* centre text */}
-      <View style={styles.center} pointerEvents="none">
-        <Text style={[styles.score, { color }]}>{displayScore}</Text>
-        <Text style={styles.max}>/100</Text>
-        <View style={[styles.badge, { backgroundColor: bandColor(band) + '33' }]}>
-          <Text style={[styles.badgeText, { color }]}>{band}</Text>
+      <View style={{ alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
+        <Text style={{ fontSize: scoreFontSize, fontWeight: '800', letterSpacing: -2, color, lineHeight: scoreFontSize * 1.1 }}>
+          {displayScore}
+        </Text>
+        <Text style={{ fontSize: maxFontSize, color: colors.muted, marginTop: 2 }}>/100</Text>
+        <View style={{ marginTop: 6, paddingHorizontal: 12, paddingVertical: 3,
+                       borderRadius: 20, backgroundColor: color + '33' }}>
+          <Text style={{ fontSize: badgeFontSize, fontWeight: '700', letterSpacing: 1.5,
+                         textTransform: 'uppercase', color }}>
+            {band}
+          </Text>
         </View>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    width: SIZE, height: SIZE,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  svg: {
-    position: 'absolute',
-  },
-  center: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  score: {
-    fontSize: 52,
-    fontWeight: '800',
-    letterSpacing: -2,
-    lineHeight: 56,
-  },
-  max: {
-    fontSize: 13,
-    color: colors.muted,
-    marginTop: 2,
-  },
-  badge: {
-    marginTop: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: 20,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-});

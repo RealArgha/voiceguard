@@ -8,16 +8,25 @@ import RingGauge from '../components/RingGauge';
 import { useVoiceStream } from '../hooks/useVoiceStream';
 import { colors, bandColor } from '../constants/theme';
 
+function statusLabel(status: string, recording: boolean): string {
+  if (recording)           return '● LIVE';
+  if (status === 'no_mic') return 'NO MIC';
+  return status.toUpperCase();
+}
+
 export default function MonitorScreen() {
   const { status, event, start, stop } = useVoiceStream();
 
   const recording  = status === 'recording';
-  const band       = event?.band  ?? 'LOW';
-  const score      = event?.score ?? 0;
+  const noMic      = status === 'no_mic';
+  const band       = event?.band   ?? 'LOW';
+  const score      = event?.score  ?? 0;
   const action     = event?.action ?? '—';
   const cnn        = event ? (event.cnn_prob * 100).toFixed(1) + '%' : '—';
   const keywords   = event?.keywords ?? [];
-  const explanation= event?.explanation || 'Start monitoring to analyse voice…';
+  const explanation = noMic
+    ? 'No microphone detected. Run on a physical device to analyse live calls.'
+    : (event?.explanation || 'Tap the mic button to start monitoring.');
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -25,17 +34,28 @@ export default function MonitorScreen() {
 
       {/* header */}
       <View style={styles.header}>
-        <View style={styles.logoIcon}><Text style={styles.logoEmoji}>🛡️</Text></View>
+        <View style={styles.logoIcon}>
+          <Text style={styles.logoEmoji}>🛡️</Text>
+        </View>
         <Text style={styles.logoText}>VoiceGuard</Text>
-        <View style={[styles.statusPill, recording && styles.statusPillLive]}>
-          <Text style={[styles.statusText, recording && styles.statusTextLive]}>
-            {recording ? '● LIVE' : status.toUpperCase()}
+        <View style={[
+          styles.statusPill,
+          recording && styles.statusPillLive,
+          noMic     && styles.statusPillMuted,
+        ]}>
+          <Text style={[
+            styles.statusText,
+            recording && styles.statusTextLive,
+          ]}>
+            {statusLabel(status, recording)}
           </Text>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ring gauge */}
         <View style={styles.gaugeWrap}>
           <RingGauge score={score} band={band} />
@@ -43,19 +63,32 @@ export default function MonitorScreen() {
 
         {/* mic button */}
         <TouchableOpacity
-          style={[styles.micBtn, recording && { backgroundColor: colors.high }]}
+          style={[
+            styles.micBtn,
+            recording && { backgroundColor: colors.high },
+            noMic     && styles.micBtnDisabled,
+          ]}
           onPress={recording ? stop : start}
+          disabled={noMic}
           activeOpacity={0.8}
         >
-          <Text style={styles.micEmoji}>{recording ? '⏹' : '🎙️'}</Text>
+          <Text style={styles.micEmoji}>
+            {noMic ? '🚫' : recording ? '⏹' : '🎙️'}
+          </Text>
         </TouchableOpacity>
+
+        {noMic && (
+          <Text style={styles.noMicHint}>
+            Physical device required for mic input
+          </Text>
+        )}
 
         {/* action card */}
         <View style={[styles.card, styles.actionCard]}>
           <Text style={styles.actionIcon}>
             {band === 'HIGH' ? '🚫' : band === 'MEDIUM' ? '⚠️' : '✅'}
           </Text>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.label}>Recommended action</Text>
             <Text style={[styles.actionValue, { color: bandColor(band) }]}>{action}</Text>
           </View>
@@ -92,7 +125,6 @@ export default function MonitorScreen() {
             </View>
           </View>
         )}
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -100,36 +132,49 @@ export default function MonitorScreen() {
 
 const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: colors.bg },
-  scroll: { padding: 16, paddingBottom: 32, alignItems: 'center', gap: 12 },
+  scroll: { padding: 16, paddingBottom: 40, alignItems: 'center', gap: 10 },
 
   header: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    padding:        16,
-    paddingBottom:  12,
+    flexDirection:     'row',
+    alignItems:        'center',
+    paddingHorizontal: 16,
+    paddingVertical:   12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     gap: 8,
   },
-  logoIcon:  { width: 32, height: 32, backgroundColor: colors.accent, borderRadius: 8,
-               alignItems: 'center', justifyContent: 'center' },
-  logoEmoji: { fontSize: 16 },
-  logoText:  { flex: 1, fontSize: 18, fontWeight: '700', color: colors.text, letterSpacing: -0.5 },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
-                backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
+  logoIcon:  {
+    width: 30, height: 30,
+    backgroundColor: colors.accent,
+    borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  logoEmoji: { fontSize: 15 },
+  logoText:  { flex: 1, fontSize: 17, fontWeight: '700', color: colors.text, letterSpacing: -0.5 },
+
+  statusPill:     { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+                    backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
   statusPillLive: { borderColor: colors.high + '60', backgroundColor: colors.high + '15' },
+  statusPillMuted:{ borderColor: colors.muted + '40' },
   statusText:     { fontSize: 10, fontWeight: '700', letterSpacing: 1, color: colors.muted },
   statusTextLive: { color: colors.high },
 
-  gaugeWrap: { marginVertical: 8 },
+  gaugeWrap:     { marginVertical: 4 },
 
   micBtn: {
-    width: 64, height: 64, borderRadius: 32,
+    width: 60, height: 60, borderRadius: 30,
     backgroundColor: colors.accent,
     alignItems: 'center', justifyContent: 'center',
-    marginVertical: 4,
   },
-  micEmoji: { fontSize: 26 },
+  micBtnDisabled: { backgroundColor: colors.surface2 },
+  micEmoji:       { fontSize: 24 },
+
+  noMicHint: {
+    fontSize: 11,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: -4,
+  },
 
   card: {
     width: '100%',
@@ -138,25 +183,25 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    gap: 6,
+    gap: 5,
   },
-  actionCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  actionIcon: { fontSize: 28 },
+  actionCard:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  actionIcon:  { fontSize: 26 },
 
-  label:        { fontSize: 10, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
-  actionValue:  { fontSize: 15, fontWeight: '600', marginTop: 2 },
-  body:         { fontSize: 13, color: '#94a3b8', lineHeight: 20 },
+  label:       { fontSize: 10, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
+  actionValue: { fontSize: 14, fontWeight: '600', marginTop: 2 },
+  body:        { fontSize: 13, color: '#94a3b8', lineHeight: 20 },
 
   metricsRow: { flexDirection: 'row', width: '100%', gap: 10 },
   metric: {
     flex: 1, backgroundColor: colors.surface2,
     borderRadius: 10, padding: 12, gap: 4,
   },
-  metricValue: { fontSize: 20, fontWeight: '700', color: colors.text },
+  metricValue: { fontSize: 19, fontWeight: '700', color: colors.text },
 
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
-  chip:  { backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 20,
-           paddingHorizontal: 10, paddingVertical: 3,
-           borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)' },
+  chips:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  chip:     { backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 20,
+              paddingHorizontal: 10, paddingVertical: 3,
+              borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)' },
   chipText: { fontSize: 11, color: '#fca5a5' },
 });
